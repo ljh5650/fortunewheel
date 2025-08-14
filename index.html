@@ -18,7 +18,10 @@
         
         <!-- 돌림판 섹션 -->
         <div class="wheel-section">
-            <canvas id="wheelCanvas" width="400" height="400"></canvas>
+            <div class="wheel-container">
+                <canvas id="wheelCanvas" width="400" height="400"></canvas>
+                <div class="wheel-pointer"></div>
+            </div>
             
             <div class="drag-instructions">
                 💡 팁: 돌림판의 경계선을 마우스로 드래그하여 상품 영역을 조정할 수 있습니다!
@@ -34,6 +37,7 @@
             <div class="settings-content" id="settingsContent">
                 <div class="settings-controls">
                     <button id="addItemBtn" class="btn">상품 추가</button>
+                    <button id="fillGapsBtn" class="btn">빈 영역 채우기</button>
                     <button id="resetBtn" class="btn">초기화</button>
                 </div>
                 

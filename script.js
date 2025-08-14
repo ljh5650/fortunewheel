@@ -22,9 +22,47 @@ class FortuneWheel {
     init() {
         this.loadDefaultItems();
         this.setupEventListeners();
+        this.resizeCanvas(); // 캔버스 크기 자동 조정
         this.drawWheel();
         this.renderItemsList();
         this.updateCurrentStatus();
+        
+        // 화면 크기 변경 시 캔버스 재조정
+        window.addEventListener('resize', () => {
+            this.resizeCanvas();
+            this.drawWheel();
+            this.updateCurrentStatus();
+        });
+    }
+    
+    // 화면 크기에 맞게 캔버스 크기 자동 조정
+    resizeCanvas() {
+        const container = this.canvas.parentElement;
+        const containerWidth = container.offsetWidth;
+        const containerHeight = window.innerHeight;
+        
+        // 모바일과 데스크톱에 따른 크기 조정
+        let canvasSize;
+        if (window.innerWidth <= 480) {
+            // 초소형 모바일
+            canvasSize = Math.min(250, containerWidth - 40, containerHeight * 0.45);
+        } else if (window.innerWidth <= 768) {
+            // 일반 모바일
+            canvasSize = Math.min(280, containerWidth - 40, containerHeight * 0.5);
+        } else {
+            // 데스크톱
+            canvasSize = Math.min(400, containerWidth - 40, containerHeight * 0.6);
+        }
+        
+        // 캔버스 크기 설정
+        this.canvas.width = canvasSize;
+        this.canvas.height = canvasSize;
+        
+        // 캔버스 스타일 크기도 설정 (CSS에서 사용)
+        this.canvas.style.width = canvasSize + 'px';
+        this.canvas.style.height = canvasSize + 'px';
+        
+        console.log(`캔버스 크기 조정: ${canvasSize}x${canvasSize}px`);
     }
 
     loadDefaultItems() {
@@ -47,9 +85,14 @@ class FortuneWheel {
             }
         });
 
-        // 상품 추가 버튼
+        // 상품 추가 버튼 - 팝업 없이 바로 추가
         document.getElementById('addItemBtn').addEventListener('click', () => {
-            this.showAddItemModal();
+            this.addItemQuickly();
+        });
+
+        // 빈 영역 채우기 버튼
+        document.getElementById('fillGapsBtn').addEventListener('click', () => {
+            this.fillAllGaps();
         });
 
         // 모달 버튼들
@@ -327,6 +370,26 @@ class FortuneWheel {
                 }
             }
         }
+        
+        // 빈 영역 채우기 버튼 상태 업데이트
+        this.updateFillGapsButtonState();
+    }
+    
+    // 빈 영역 채우기 버튼의 활성화/비활성화 상태 업데이트
+    updateFillGapsButtonState() {
+        const fillGapsBtn = document.getElementById('fillGapsBtn');
+        if (fillGapsBtn) {
+            const hasGaps = this.hasGaps();
+            fillGapsBtn.disabled = !hasGaps;
+            
+            if (hasGaps) {
+                fillGapsBtn.title = "빈 영역을 모두 채워서 360도를 꽉 채웁니다";
+                fillGapsBtn.classList.remove('disabled');
+            } else {
+                fillGapsBtn.title = "이미 모든 영역이 꽉 찬 상태입니다";
+                fillGapsBtn.classList.add('disabled');
+            }
+        }
     }
 
     showAddItemModal() {
@@ -380,6 +443,161 @@ class FortuneWheel {
         this.renderItemsList();
         this.saveToLocalStorage();
         this.updateCurrentStatus();
+    }
+
+    // 팝업 없이 바로 상품 추가 (기존 아이템 각도 자동 조정)
+    addItemQuickly() {
+        // 새 상품명 생성 (기본값 + 번호)
+        let itemNumber = 1;
+        let newName = `새 상품 ${itemNumber}`;
+        
+        // 중복되지 않는 이름 찾기
+        while (this.items.some(item => item.name === newName)) {
+            itemNumber++;
+            newName = `새 상품 ${itemNumber}`;
+        }
+        
+        // 랜덤 색상 생성
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3'];
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        
+        // 새 상품을 안전하게 추가
+        const newItem = this.addItemSafely(newName, randomColor);
+        
+        // 돌림판 다시 그리기
+        this.drawWheel();
+        this.renderItemsList();
+        this.saveToLocalStorage();
+        this.updateCurrentStatus();
+        
+        // 성공 메시지
+        console.log(`새 상품 "${newName}"이 추가되었습니다!`);
+    }
+    
+    // 안전하게 상품 추가 (기존 아이템 각도 보존)
+    addItemSafely(name, color) {
+        if (this.items.length === 0) {
+            // 첫 번째 아이템인 경우
+            const newItem = {
+                name: name,
+                startAngle: 0,
+                endAngle: 60,
+                color: color
+            };
+            this.items.push(newItem);
+            return newItem;
+        }
+        
+        // 기존 아이템들의 각도를 균등하게 조정
+        this.redistributeAngles();
+        
+        // 가장 큰 빈 공간에 새 상품 삽입
+        const newItem = {
+            name: name,
+            startAngle: 0,
+            endAngle: 60,
+            color: color
+        };
+        
+        this.insertItemInGap(newItem);
+        return newItem;
+    }
+    
+    // 기존 아이템들의 각도를 균등하게 재분배
+    redistributeAngles() {
+        const totalItems = this.items.length + 1; // 새 상품 포함
+        const anglePerItem = 360 / totalItems;
+        
+        // 기존 아이템들의 각도를 균등하게 조정
+        this.items.forEach((item, index) => {
+            item.startAngle = index * anglePerItem;
+            item.endAngle = (index + 1) * anglePerItem;
+        });
+    }
+    
+    // 빈 공간에 새 상품 삽입
+    insertItemInGap(newItem) {
+        // 가장 큰 빈 공간 찾기
+        let maxGap = 0;
+        let bestPosition = 0;
+        
+        // 아이템들 사이의 빈 공간 확인
+        for (let i = 0; i < this.items.length; i++) {
+            const currentItem = this.items[i];
+            const nextItem = this.items[(i + 1) % this.items.length];
+            
+            let gap;
+            if (i === this.items.length - 1) {
+                // 마지막 아이템과 첫 번째 아이템 사이
+                gap = (360 - currentItem.endAngle) + nextItem.startAngle;
+            } else {
+                gap = nextItem.startAngle - currentItem.endAngle;
+            }
+            
+            if (gap > maxGap) {
+                maxGap = gap;
+                bestPosition = i;
+            }
+        }
+        
+        // 새 상품을 적절한 위치에 삽입
+        const targetItem = this.items[bestPosition];
+        
+        if (bestPosition === this.items.length - 1) {
+            // 마지막 아이템 다음에 삽입
+            newItem.startAngle = targetItem.endAngle;
+            newItem.endAngle = 360;
+        } else {
+            // 두 아이템 사이에 삽입
+            newItem.startAngle = targetItem.endAngle;
+            newItem.endAngle = targetItem.endAngle + 60;
+        }
+        
+        // 새 상품을 적절한 위치에 삽입
+        this.items.splice(bestPosition + 1, 0, newItem);
+        
+        // 각도 정규화 및 정렬
+        this.normalizeAndSortAngles();
+    }
+    
+    // 각도 정규화 및 정렬
+    normalizeAndSortAngles() {
+        // 각도 정규화 (0-360 범위 내로)
+        this.items.forEach(item => {
+            item.startAngle = (item.startAngle + 360) % 360;
+            item.endAngle = (item.endAngle + 360) % 360;
+            
+            // 시작 각도가 끝 각도보다 큰 경우 조정
+            if (item.startAngle > item.endAngle) {
+                item.endAngle += 360;
+            }
+        });
+        
+        // 각도 순으로 정렬
+        this.items.sort((a, b) => a.startAngle - b.startAngle);
+        
+        // 각도 겹침 방지
+        this.preventAngleOverlap();
+    }
+    
+    // 각도 겹침 방지
+    preventAngleOverlap() {
+        for (let i = 0; i < this.items.length; i++) {
+            const currentItem = this.items[i];
+            const nextItem = this.items[(i + 1) % this.items.length];
+            
+            if (i === this.items.length - 1) {
+                // 마지막 아이템과 첫 번째 아이템 사이
+                if (currentItem.endAngle > 360) {
+                    currentItem.endAngle = 360;
+                }
+            } else {
+                // 다음 아이템과 겹치지 않도록 조정
+                if (currentItem.endAngle > nextItem.startAngle) {
+                    currentItem.endAngle = nextItem.startAngle;
+                }
+            }
+        }
     }
 
     checkAngleOverlap(startAngle, endAngle) {
@@ -674,31 +892,92 @@ class FortuneWheel {
             resultArea.classList.add('celebration');
         }, 100);
         
-        // 컨페티 효과 (간단한 버전)
+        // 격렬한 컨페티 효과
         this.createConfetti();
     }
-
-    // 컨페티 효과
+    
+    // 격렬한 컨페티 효과
     createConfetti() {
-        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD', '#FF1493', '#FFD700', '#FF6347', '#00CED1', '#FF69B4', '#32CD32'];
+        const shapes = ['circle', 'square', 'triangle', 'star'];
         
-        for (let i = 0; i < 50; i++) {
+        // 더 많은 컨페티 생성 (100개)
+        for (let i = 0; i < 100; i++) {
             setTimeout(() => {
                 const confetti = document.createElement('div');
                 confetti.className = 'confetti';
+                
+                // 랜덤 위치
                 confetti.style.left = Math.random() * 100 + '%';
+                
+                // 랜덤 색상
                 confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.animationDelay = Math.random() * 3 + 's';
+                
+                // 랜덤 크기
+                const size = Math.random() * 15 + 8;
+                confetti.style.width = size + 'px';
+                confetti.style.height = size + 'px';
+                
+                // 랜덤 모양
+                const shape = shapes[Math.floor(Math.random() * shapes.length)];
+                if (shape === 'square') {
+                    confetti.style.borderRadius = '0';
+                } else if (shape === 'triangle') {
+                    confetti.style.width = '0';
+                    confetti.style.height = '0';
+                    confetti.style.backgroundColor = 'transparent';
+                    confetti.style.borderLeft = (size/2) + 'px solid transparent';
+                    confetti.style.borderRight = (size/2) + 'px solid transparent';
+                    confetti.style.borderBottom = size + 'px solid ' + colors[Math.floor(Math.random() * colors.length)];
+                } else if (shape === 'star') {
+                    confetti.style.clipPath = 'polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)';
+                }
+                
+                // 랜덤 애니메이션 지연
+                confetti.style.animationDelay = Math.random() * 4 + 's';
+                
+                // 랜덤 회전
+                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
                 
                 document.body.appendChild(confetti);
                 
-                // 3초 후 제거
+                // 4초 후 제거
                 setTimeout(() => {
                     if (confetti.parentNode) {
                         confetti.parentNode.removeChild(confetti);
                     }
-                }, 3000);
-            }, i * 50);
+                }, 4000);
+            }, i * 30); // 더 빠른 생성
+        }
+        
+        // 추가 효과: 화면 전체에 스파클 효과
+        this.createSparkles();
+    }
+    
+    // 스파클 효과 추가
+    createSparkles() {
+        for (let i = 0; i < 50; i++) {
+            setTimeout(() => {
+                const sparkle = document.createElement('div');
+                sparkle.style.position = 'fixed';
+                sparkle.style.width = '4px';
+                sparkle.style.height = '4px';
+                sparkle.style.backgroundColor = '#FFD700';
+                sparkle.style.borderRadius = '50%';
+                sparkle.style.pointerEvents = 'none';
+                sparkle.style.zIndex = '9998';
+                sparkle.style.left = Math.random() * 100 + '%';
+                sparkle.style.top = Math.random() * 100 + '%';
+                sparkle.style.animation = 'sparkle 2s ease-in-out forwards';
+                
+                document.body.appendChild(sparkle);
+                
+                setTimeout(() => {
+                    if (sparkle.parentNode) {
+                        sparkle.parentNode.removeChild(sparkle);
+                    }
+                }, 2000);
+            }, i * 100);
         }
     }
 
@@ -727,7 +1006,94 @@ class FortuneWheel {
             this.renderItemsList();
             localStorage.removeItem('fortuneWheelItems');
             this.updateCurrentStatus();
+            this.updateFillGapsButtonState(); // 빈 영역 채우기 버튼 상태 업데이트
         }
+    }
+
+    // 빈 영역 채우기 - 모든 상품 각도를 자동 조정하여 360도 꽉 채우기
+    fillAllGaps() {
+        if (this.items.length === 0) {
+            alert('상품이 없습니다.');
+            return;
+        }
+
+        // 빈 영역이 있는지 확인
+        if (!this.hasGaps()) {
+            alert('이미 모든 영역이 꽉 찬 상태입니다! 🎯');
+            return;
+        }
+
+        // 사용자에게 확인
+        if (!confirm('기존 상품들의 각도가 변경됩니다. 정말로 빈 영역을 모두 채우시겠습니까?')) {
+            return;
+        }
+
+        if (this.items.length === 1) {
+            // 상품이 하나뿐인 경우 360도 전체 차지
+            this.items[0].startAngle = 0;
+            this.items[0].endAngle = 360;
+        } else {
+            // 여러 상품인 경우 균등하게 분배
+            this.distributeEvenly();
+        }
+
+        // 돌림판 다시 그리기
+        this.drawWheel();
+        this.renderItemsList();
+        this.saveToLocalStorage();
+        this.updateCurrentStatus();
+
+        // 성공 메시지
+        alert('빈 영역을 모두 채웠습니다! 🎯');
+    }
+
+    // 빈 영역이 있는지 확인하는 함수
+    hasGaps() {
+        if (this.items.length === 0) return false;
+        if (this.items.length === 1) {
+            // 상품이 하나뿐인 경우, 360도 전체를 차지하지 않으면 빈 영역이 있음
+            return !(this.items[0].startAngle === 0 && this.items[0].endAngle === 360);
+        }
+
+        // 여러 상품인 경우, 각도가 연속되지 않거나 360도를 완전히 채우지 않으면 빈 영역이 있음
+        let totalCovered = 0;
+        for (let i = 0; i < this.items.length; i++) {
+            const item = this.items[i];
+            const nextItem = this.items[(i + 1) % this.items.length];
+            
+            // 현재 아이템의 각도 범위 계산
+            let itemRange;
+            if (i === this.items.length - 1) {
+                // 마지막 아이템과 첫 번째 아이템 사이
+                if (item.endAngle < nextItem.startAngle) {
+                    itemRange = item.endAngle - item.startAngle;
+                } else {
+                    itemRange = (360 - item.startAngle) + nextItem.startAngle;
+                }
+            } else {
+                itemRange = item.endAngle - item.startAngle;
+            }
+            
+            totalCovered += itemRange;
+        }
+
+        // 360도와 비교 (부동소수점 오차 허용)
+        return Math.abs(totalCovered - 360) > 1;
+    }
+
+    // 모든 상품을 360도에 균등하게 분배
+    distributeEvenly() {
+        const totalItems = this.items.length;
+        const anglePerItem = 360 / totalItems;
+
+        // 각 상품의 각도를 균등하게 설정
+        this.items.forEach((item, index) => {
+            item.startAngle = index * anglePerItem;
+            item.endAngle = (index + 1) * anglePerItem;
+        });
+
+        // 각도 정규화 및 정렬
+        this.normalizeAndSortAngles();
     }
 }
 
