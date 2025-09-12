@@ -7,45 +7,35 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🎯 행운의 돌림판</h1>
-        
-        <!-- 결과 표시 영역 (돌림판 위, 항상 표시) -->
-        <div id="result" class="result-area">
-            <div class="result-text">돌림판 결과</div>
-            <div id="resultItem" class="result-item">돌림판을 돌려보세요!</div>
-        </div>
-        
-        <!-- 돌림판 섹션 -->
-        <div class="wheel-section">
-            <div class="wheel-container">
-                <canvas id="wheelCanvas" width="400" height="400"></canvas>
-                <div class="wheel-pointer"></div>
-            </div>
+    <!-- 메인 레이아웃 컨테이너 -->
+    <div class="main-layout">
+        <!-- 룰렛 영역 -->
+        <div class="wheel-area">
+            <!-- 고정 설정 토글 버튼 -->
+            <button class="fixed-settings-toggle" id="fixedSettingsToggle" onclick="toggleDrawer()">
+                ⚙️ 설정
+            </button>
             
-            <div class="drag-instructions">
-                💡 팁: 돌림판의 경계선을 마우스로 드래그하여 상품 영역을 조정할 수 있습니다!
+            <div class="wheel-container">
+                <h1>🎯 행운의 돌림판</h1>
+                
+                <!-- 결과 표시 영역 (돌림판 위, 항상 표시) -->
+                <div id="result" class="result-area">
+                    <div class="result-text">돌림판 결과</div>
+                    <div id="resultItem" class="result-item">돌림판을 돌려보세요!</div>
+                </div>
+                
+                <!-- 돌림판 섹션 -->
+                <div class="wheel-section">
+                    <div class="wheel-container">
+                        <canvas id="wheelCanvas" width="400" height="400"></canvas>
+                        <div class="wheel-pointer"></div>
+                    </div>
+                </div>
+                
             </div>
         </div>
 
-        <!-- 상품 설정 섹션 (접을 수 있음) -->
-        <div class="settings-section">
-            <div class="settings-header" onclick="toggleSettings()">
-                <h2>⚙️ 상품 설정</h2>
-                <span class="toggle-icon" id="toggleIcon">▼</span>
-            </div>
-            <div class="settings-content" id="settingsContent">
-                <div class="settings-controls">
-                    <button id="addItemBtn" class="btn">상품 추가</button>
-                    <button id="fillGapsBtn" class="btn">빈 영역 채우기</button>
-                    <button id="resetBtn" class="btn">초기화</button>
-                </div>
-                
-                <div class="items-list" id="itemsList">
-                    <!-- 상품 목록이 여기에 동적으로 추가됩니다 -->
-                </div>
-            </div>
-        </div>
 
         <!-- 모달 -->
         <div id="addItemModal" class="modal hidden">
@@ -56,12 +46,8 @@
                     <input type="text" id="itemName" placeholder="상품명을 입력하세요">
                 </div>
                 <div class="form-group">
-                    <label for="itemStart">시작 각도 (0-360):</label>
-                    <input type="number" id="itemStart" min="0" max="360" value="0">
-                </div>
-                <div class="form-group">
-                    <label for="itemEnd">끝 각도 (0-360):</label>
-                    <input type="number" id="itemEnd" min="0" max="360" value="90">
+                    <label for="itemQuantity">수량:</label>
+                    <input type="number" id="itemQuantity" min="1" max="100" value="1">
                 </div>
                 <div class="form-group">
                     <label for="itemColor">색상:</label>
@@ -75,9 +61,69 @@
         </div>
     </div>
 
+    <!-- 설정 서랍 -->
+    <div class="settings-drawer" id="settingsDrawer">
+        <div class="drawer-resize-handle" id="drawerResizeHandle"></div>
+        <div class="drawer-header">
+            <h2>⚙️ 설정</h2>
+            <button class="drawer-toggle" id="drawerToggle" onclick="toggleDrawer()">
+                <span class="toggle-icon" id="toggleIcon">◀</span>
+            </button>
+        </div>
+        <div class="drawer-content" id="drawerContent">
+            <div class="settings-controls">
+                <button id="addItemBtn" class="btn">상품 추가</button>
+                <button id="removeItemBtn" class="btn">상품 삭제</button>
+                <button id="resetBtn" class="btn">초기화</button>
+            </div>
+            
+            <!-- 프리셋 관리 -->
+            <div class="preset-section">
+                <h3>🎯 프리셋 관리</h3>
+                <div class="preset-controls">
+                    <button id="loadDefaultPreset" class="btn">기본 프리셋 로드</button>
+                    <button id="savePresetBtn" class="btn">현재 프리셋 저장</button>
+                    <button id="loadPresetBtn" class="btn">저장된 프리셋 로드</button>
+                </div>
+                
+                <!-- JSON Import/Export -->
+                <div class="json-controls">
+                    <h4>📁 데이터 관리</h4>
+                    <div class="form-group">
+                        <label for="jsonExport">현재 데이터 내보내기:</label>
+                        <button id="exportJsonBtn" class="btn">JSON 내보내기</button>
+                    </div>
+                    <div class="form-group">
+                        <label for="jsonImport">데이터 가져오기:</label>
+                        <textarea id="jsonImportText" placeholder="JSON 문자열을 여기에 붙여넣으세요..." rows="4"></textarea>
+                        <button id="importJsonBtn" class="btn">JSON 가져오기</button>
+                    </div>
+                </div>
+                
+                <div class="preset-list" id="presetList">
+                    <!-- 저장된 프리셋 목록이 여기에 표시됩니다 -->
+                </div>
+            </div>
+            
+            <!-- 애니메이션 설정 -->
+            <div class="animation-settings">
+                <h3>🎮 애니메이션 설정</h3>
+                <div class="form-group">
+                    <label for="stopAnimationTime">정지 애니메이션 시간 (초):</label>
+                    <input type="number" id="stopAnimationTime" min="0.1" max="5" value="1" step="0.1">
+                </div>
+            </div>
+            
+            <div class="items-list" id="itemsList">
+                <!-- 상품 목록이 여기에 동적으로 추가됩니다 -->
+            </div>
+        </div>
+    </div>
+
     <!-- 하단 고정 돌리기 버튼 영역 -->
     <div class="bottom-spin-area">
         <button id="spinBtn" class="spin-btn-large">🎯 돌리기!</button>
+        <button id="stopBtn" class="stop-btn-large hidden">⏹️ 정지</button>
     </div>
 
     <script src="script.js"></script>
